@@ -1,6 +1,9 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { ItineraryData } from "../types";
 
+// Global constant defined in vite.config.ts
+declare const __GEMINI_API_KEY__: string | undefined;
+
 // Define the expected output schema for the model
 const itinerarySchema: Schema = {
   type: Type.OBJECT,
@@ -48,9 +51,19 @@ export const generateItinerary = async (
   interests: string
 ): Promise<ItineraryData> => {
   // 1. Validate API Key Presence
-  const apiKey = process.env.API_KEY;
+  // Try retrieving from global constant first, then process.env
+  let apiKey = '';
+  
+  if (typeof __GEMINI_API_KEY__ !== 'undefined' && __GEMINI_API_KEY__) {
+    apiKey = __GEMINI_API_KEY__;
+  } else if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+    apiKey = process.env.API_KEY;
+  }
+
   if (!apiKey) {
-    throw new Error("Gemini API Key is missing. Please check your .env file and ensure you ran 'npm run build' after adding it.");
+    console.error("Debug: __GEMINI_API_KEY__ is", typeof __GEMINI_API_KEY__);
+    console.error("Debug: process.env.API_KEY is", typeof process !== 'undefined' ? process.env.API_KEY : 'process undefined');
+    throw new Error("Gemini API Key is missing. Check .env file for GEMINI_API_KEY and restart the server.");
   }
 
   try {
@@ -82,7 +95,7 @@ export const generateItinerary = async (
     console.error("Gemini API Error:", error);
     // Return a user-friendly error message if possible
     if (error.message.includes('403') || error.message.includes('API_KEY_INVALID')) {
-      throw new Error("Invalid API Key. Please check your configuration.");
+      throw new Error("Invalid API Key. Please check your configuration in .env");
     }
     throw error;
   }
