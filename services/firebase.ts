@@ -85,7 +85,7 @@ export const saveSession = async (session: Omit<Session, 'id'>): Promise<Session
     // Security Debugging
     if (session.userId !== currentUser.uid) {
       console.error(`[Security Mismatch] Session UserID: ${session.userId} vs Auth UID: ${currentUser.uid}`);
-      throw new Error("User ID mismatch prevention.");
+      throw new Error("Security check failed: User ID mismatch.");
     }
 
     const sessionsRef = collection(db, 'sessions');
@@ -115,10 +115,6 @@ export const getSessions = async (userId: string): Promise<Session[]> => {
     // Log intent
     console.log(`[Firestore] Fetching sessions for userId: ${userId}`);
     
-    if (currentUser && currentUser.uid !== userId) {
-      console.warn(`[Firestore Warning] Querying for user ${userId} but logged in as ${currentUser.uid}. This will likely fail permissions.`);
-    }
-
     const sessionsRef = collection(db, 'sessions');
     
     // Note: This query requires an Index (userId ASC, createdAt DESC)
