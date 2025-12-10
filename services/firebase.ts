@@ -1,5 +1,4 @@
 import { initializeApp } from 'firebase/app';
-import { getAnalytics } from "firebase/analytics";
 import { 
   getAuth, 
   signInWithEmailAndPassword, 
@@ -33,8 +32,8 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-// Initialize Analytics (optional, but good practice since provided in config)
-const analytics = getAnalytics(app);
+// Analytics removed to avoid build errors with missing module
+// const analytics = getAnalytics(app); 
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);

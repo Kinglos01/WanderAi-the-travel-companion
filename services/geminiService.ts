@@ -48,12 +48,7 @@ export const generateItinerary = async (
   interests: string
 ): Promise<ItineraryData> => {
   try {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-        throw new Error("API_KEY is missing in environment");
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const prompt = `
       Plan a ${days}-day travel itinerary for ${destination}.
