@@ -1,16 +1,38 @@
 import React, { useEffect, useState } from 'react';
-import { getSessions } from '../services/mockFirebase';
-import { Session } from '../types';
+import { getSessions } from '../services/firebase';
+import { Session, User } from '../types';
 import { Calendar, MapPin, Clock } from 'lucide-react';
 
-export const History: React.FC = () => {
+interface HistoryProps {
+  user: User;
+}
+
+export const History: React.FC<HistoryProps> = ({ user }) => {
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // In a real app, this would be an async fetch from Firestore
-    const data = getSessions();
-    setSessions(data);
-  }, []);
+    const fetchHistory = async () => {
+      try {
+        const data = await getSessions(user.uid);
+        setSessions(data);
+      } catch (e) {
+        console.error("Failed to load history", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchHistory();
+  }, [user.uid]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-full">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   if (sessions.length === 0) {
     return (

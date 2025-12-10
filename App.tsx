@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, ViewState, ItineraryData, WeatherData } from './types';
-import { getCurrentUser, logout, saveSession } from './services/mockFirebase';
+import { subscribeToAuthChanges, logout, saveSession } from './services/firebase';
 import { generateItinerary } from './services/geminiService';
 import { fetchWeather } from './services/weatherService';
 
@@ -24,6 +24,7 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [view, setView] = useState<ViewState>(ViewState.DASHBOARD);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [initializing, setInitializing] = useState(true);
 
   // Generation State
   const [destination, setDestination] = useState('');
@@ -35,13 +36,17 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const storedUser = getCurrentUser();
-    if (storedUser) setUser(storedUser);
+    // Subscribe to real-time auth changes from Firebase
+    const unsubscribe = subscribeToAuthChanges((currentUser) => {
+      setUser(currentUser);
+      setInitializing(false);
+    });
+    return () => unsubscribe();
   }, []);
 
   const handleLogout = async () => {
     await logout();
-    setUser(null);
+    // Auth subscription will handle state update
   };
 
   const handleGenerate = async (e: React.FormEvent) => {
@@ -66,7 +71,7 @@ const App: React.FC = () => {
         setWeather(weatherData);
       }
 
-      // 3. Save to History
+      // 3. Save to History (Firestore)
       if (user) {
         await saveSession({
           userId: user.uid,
@@ -78,11 +83,20 @@ const App: React.FC = () => {
       }
 
     } catch (err) {
+      console.error(err);
       setError("Failed to generate itinerary. Please try again.");
     } finally {
       setLoading(false);
     }
   };
+
+  if (initializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   if (!user) {
     return <Auth onLogin={setUser} />;
@@ -238,7 +252,7 @@ const App: React.FC = () => {
             error={error}
           />
         ) : (
-          <History />
+          <History user={user} />
         )}
       </main>
 

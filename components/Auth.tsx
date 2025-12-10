@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { login, register } from '../services/mockFirebase';
+import { login, register } from '../services/firebase';
 import { Button } from './Button';
 import { User } from '../types';
-import { Lock, Mail, User as UserIcon } from 'lucide-react';
+import { Lock, Mail, User as UserIcon, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 interface AuthProps {
   onLogin: (user: User) => void;
@@ -12,12 +12,23 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
+
+    if (isSignUp && password !== confirmPassword) {
+      setError("Passwords do not match.");
+      setLoading(false);
+      return;
+    }
+
     try {
       let user;
       if (isSignUp) {
@@ -26,11 +37,20 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         user = await login(email, password);
       }
       onLogin(user);
-    } catch (error) {
-      console.error(error);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Authentication failed. Please check your credentials.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleMode = () => {
+    setIsSignUp(!isSignUp);
+    setError(null);
+    setPassword('');
+    setConfirmPassword('');
+    setName('');
   };
 
   return (
@@ -47,6 +67,13 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             {isSignUp ? "Start your journey with WanderAI" : "Sign in to plan your next adventure"}
           </p>
         </div>
+
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-lg flex items-start gap-2">
+             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+             <span>{error}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {isSignUp && (
@@ -85,17 +112,42 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <div className="relative">
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 required
                 minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full pl-10 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 placeholder="••••••••"
               />
               <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 focus:outline-none"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
           </div>
+
+          {isSignUp && (
+            <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  minLength={6}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="••••••••"
+                />
+                <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+              </div>
+            </div>
+          )}
 
           <Button type="submit" isLoading={loading} className="w-full">
             {isSignUp ? "Sign Up" : "Sign In"}
@@ -107,11 +159,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             {isSignUp ? "Already have an account?" : "Don't have an account?"}{' '}
             <button
               type="button"
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                // Reset form fields slightly for better UX
-                setPassword('');
-              }}
+              onClick={toggleMode}
               className="font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none focus:underline transition-colors"
             >
               {isSignUp ? "Sign In" : "Sign Up"}
