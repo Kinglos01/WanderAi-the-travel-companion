@@ -38,8 +38,24 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       }
       onLogin(user);
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Authentication failed. Please check your credentials.");
+      console.error("Auth Error:", err);
+      
+      // Handle specific Firebase error codes
+      let message = "Authentication failed. Please check your credentials.";
+      
+      if (err.code === 'auth/configuration-not-found') {
+        message = "Setup Required: Enable 'Email/Password' in Firebase Console > Authentication > Sign-in method.";
+      } else if (err.code === 'auth/email-already-in-use') {
+        message = "This email is already registered. Please sign in instead.";
+      } else if (err.code === 'auth/weak-password') {
+        message = "Password should be at least 6 characters.";
+      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+        message = "Invalid email or password.";
+      } else if (err.message) {
+        message = err.message;
+      }
+
+      setError(message);
     } finally {
       setLoading(false);
     }
