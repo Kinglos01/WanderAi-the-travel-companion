@@ -3,10 +3,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Match the sessions collection
     match /sessions/{sessionId} {
-      // Allow creation if user is authenticated and the userId matches their UID
+      // ALLOW CREATE: if user is logged in AND the document's 'userId' field matches their UID
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
       
-      // Allow read/update/delete only if the user owns the document
+      // ALLOW READ/UPDATE/DELETE: if user is logged in AND the stored document's 'userId' matches their UID
+      // Note: For list queries, the query must explicitly filter by userId == auth.uid
       allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
     

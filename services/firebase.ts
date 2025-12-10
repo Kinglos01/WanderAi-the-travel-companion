@@ -77,19 +77,33 @@ export const logout = async (): Promise<void> => {
 
 // Firestore Service
 export const saveSession = async (session: Omit<Session, 'id'>): Promise<Session> => {
-  const sessionsRef = collection(db, 'sessions');
-  const sessionData = { 
-    ...session, 
-    createdAt: new Date().toISOString() 
-  };
-  
-  const docRef = await addDoc(sessionsRef, sessionData);
-  return { ...sessionData, id: docRef.id };
+  try {
+    // Validation
+    if (!auth.currentUser) throw new Error("User must be logged in to save session.");
+    if (session.userId !== auth.currentUser.uid) throw new Error("User ID mismatch.");
+
+    const sessionsRef = collection(db, 'sessions');
+    const sessionData = { 
+      ...session, 
+      createdAt: new Date().toISOString() 
+    };
+    
+    const docRef = await addDoc(sessionsRef, sessionData);
+    return { ...sessionData, id: docRef.id };
+  } catch (error: any) {
+    console.error("Error saving session:", error);
+    if (error.code === 'permission-denied') {
+      console.error("Firestore Permission Denied (Write): Check firestore.rules.");
+    }
+    throw error;
+  }
 };
 
 export const getSessions = async (userId: string): Promise<Session[]> => {
   try {
     const sessionsRef = collection(db, 'sessions');
+    
+    // Note: This query requires an Index (userId ASC, createdAt DESC)
     const q = query(
       sessionsRef, 
       where("userId", "==", userId),
@@ -101,8 +115,15 @@ export const getSessions = async (userId: string): Promise<Session[]> => {
       id: doc.id,
       ...doc.data()
     } as Session));
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching sessions:", error);
+    
+    if (error.code === 'permission-denied') {
+      console.error("Firestore Permission Denied (Read): Ensure rules allows reading 'auth.uid' data and that you are querying for the correct userId.");
+    } else if (error.code === 'failed-precondition') {
+      console.error("Firestore Index Missing: Check the console for a link to create the index, or deploy firestore.indexes.json.");
+    }
+    
     return [];
   }
 };
