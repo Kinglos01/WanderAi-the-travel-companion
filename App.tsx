@@ -82,9 +82,9 @@ const App: React.FC = () => {
         });
       }
 
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Failed to generate itinerary. Please try again.");
+      setError(err.message || "Failed to generate itinerary. Please try again.");
     } finally {
       setLoading(false);
     }

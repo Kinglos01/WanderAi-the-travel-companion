@@ -47,8 +47,14 @@ export const generateItinerary = async (
   days: number,
   interests: string
 ): Promise<ItineraryData> => {
+  // 1. Validate API Key Presence
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("Gemini API Key is missing. Please check your .env file and ensure you ran 'npm run build' after adding it.");
+  }
+
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
 
     const prompt = `
       Plan a ${days}-day travel itinerary for ${destination}.
@@ -72,8 +78,12 @@ export const generateItinerary = async (
 
     return JSON.parse(text) as ItineraryData;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini API Error:", error);
+    // Return a user-friendly error message if possible
+    if (error.message.includes('403') || error.message.includes('API_KEY_INVALID')) {
+      throw new Error("Invalid API Key. Please check your configuration.");
+    }
     throw error;
   }
 };
