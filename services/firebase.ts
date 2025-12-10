@@ -19,21 +19,25 @@ import {
 } from 'firebase/firestore';
 import { User, Session } from '../types';
 
-// Firebase Configuration
+// Firebase Configuration from Environment Variables
 const firebaseConfig = {
-  apiKey: "AIzaSyBiyKaJoR1zciPuikGn6vZN4CbCkDBBzdU",
-  authDomain: "wanderai-6477f.firebaseapp.com",
-  projectId: "wanderai-6477f",
-  storageBucket: "wanderai-6477f.firebasestorage.app",
-  messagingSenderId: "285344264352",
-  appId: "1:285344264352:web:2dff473e9a0568fb6219c5",
-  measurementId: "G-L6TDPTC7QJ"
+  apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID,
 };
+
+// Debugging check
+if (!firebaseConfig.apiKey) {
+  console.error("Firebase Config is missing! Please check your .env file.");
+} else {
+  console.log(`[Firebase] Initializing connection to project: ${firebaseConfig.projectId}`);
+}
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-// Analytics removed to avoid build errors with missing module
-// const analytics = getAnalytics(app); 
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);

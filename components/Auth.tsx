@@ -44,7 +44,8 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       let message = "Authentication failed. Please check your credentials.";
       
       if (err.code === 'auth/configuration-not-found') {
-        message = "Setup Required: Enable 'Email/Password' in Firebase Console > Authentication > Sign-in method.";
+        const projectId = process.env.FIREBASE_PROJECT_ID || 'unknown';
+        message = `Auth not enabled for project "${projectId}". Go to Firebase Console > Authentication and enable Email/Password.`;
       } else if (err.code === 'auth/email-already-in-use') {
         message = "This email is already registered. Please sign in instead.";
       } else if (err.code === 'auth/weak-password') {
