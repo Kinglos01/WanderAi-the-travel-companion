@@ -79,8 +79,14 @@ export const logout = async (): Promise<void> => {
 export const saveSession = async (session: Omit<Session, 'id'>): Promise<Session> => {
   try {
     // Validation
-    if (!auth.currentUser) throw new Error("User must be logged in to save session.");
-    if (session.userId !== auth.currentUser.uid) throw new Error("User ID mismatch.");
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error("User must be logged in to save session.");
+    
+    // Security Debugging
+    if (session.userId !== currentUser.uid) {
+      console.error(`[Security Mismatch] Session UserID: ${session.userId} vs Auth UID: ${currentUser.uid}`);
+      throw new Error("User ID mismatch prevention.");
+    }
 
     const sessionsRef = collection(db, 'sessions');
     const sessionData = { 
@@ -88,12 +94,15 @@ export const saveSession = async (session: Omit<Session, 'id'>): Promise<Session
       createdAt: new Date().toISOString() 
     };
     
+    console.log(`[Firestore] Saving session for user: ${currentUser.uid}`);
     const docRef = await addDoc(sessionsRef, sessionData);
+    console.log(`[Firestore] Session saved with ID: ${docRef.id}`);
+    
     return { ...sessionData, id: docRef.id };
   } catch (error: any) {
     console.error("Error saving session:", error);
     if (error.code === 'permission-denied') {
-      console.error("Firestore Permission Denied (Write): Check firestore.rules.");
+      console.error("Firestore Permission Denied (Write). Please check: 1) firestore.rules is deployed. 2) You are logged in. 3) The 'userId' field matches your Auth UID.");
     }
     throw error;
   }
@@ -101,6 +110,15 @@ export const saveSession = async (session: Omit<Session, 'id'>): Promise<Session
 
 export const getSessions = async (userId: string): Promise<Session[]> => {
   try {
+    const currentUser = auth.currentUser;
+    
+    // Log intent
+    console.log(`[Firestore] Fetching sessions for userId: ${userId}`);
+    
+    if (currentUser && currentUser.uid !== userId) {
+      console.warn(`[Firestore Warning] Querying for user ${userId} but logged in as ${currentUser.uid}. This will likely fail permissions.`);
+    }
+
     const sessionsRef = collection(db, 'sessions');
     
     // Note: This query requires an Index (userId ASC, createdAt DESC)
@@ -111,15 +129,19 @@ export const getSessions = async (userId: string): Promise<Session[]> => {
     );
     
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
+    const results = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     } as Session));
+    
+    console.log(`[Firestore] Found ${results.length} sessions.`);
+    return results;
+
   } catch (error: any) {
     console.error("Error fetching sessions:", error);
     
     if (error.code === 'permission-denied') {
-      console.error("Firestore Permission Denied (Read): Ensure rules allows reading 'auth.uid' data and that you are querying for the correct userId.");
+      console.error("Firestore Permission Denied (Read): Check firestore.rules or ensure query matches 'allow read' conditions.");
     } else if (error.code === 'failed-precondition') {
       console.error("Firestore Index Missing: Check the console for a link to create the index, or deploy firestore.indexes.json.");
     }

@@ -1,17 +1,21 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Match the sessions collection
+    
+    // Sessions Collection Rules
     match /sessions/{sessionId} {
-      // ALLOW CREATE: if user is logged in AND the document's 'userId' field matches their UID
+      // CREATE: Allow if user is logged in AND the 'userId' in the new document matches their auth UID
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
       
-      // ALLOW READ/UPDATE/DELETE: if user is logged in AND the stored document's 'userId' matches their UID
-      // Note: For list queries, the query must explicitly filter by userId == auth.uid
-      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      // READ: Allow if user is logged in AND the document's 'userId' matches their auth UID
+      // NOTE: Queries must filter by 'userId' to satisfy this rule.
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // UPDATE/DELETE: Allow if user is logged in AND the document belongs to them
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
     
-    // Default deny for all other collections
+    // Default Deny
     match /{document=**} {
       allow read, write: if false;
     }
