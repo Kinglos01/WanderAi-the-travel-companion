@@ -14,7 +14,8 @@ export const History: React.FC<HistoryProps> = ({ user }) => {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const data = await getSessions(user.uid);
+        // We don't pass user.uid here anymore; the service uses auth.currentUser.uid
+        const data = await getSessions();
         setSessions(data);
       } catch (e) {
         console.error("Failed to load history", e);
@@ -24,7 +25,7 @@ export const History: React.FC<HistoryProps> = ({ user }) => {
     };
     
     fetchHistory();
-  }, [user.uid]);
+  }, [user.uid]); // re-run if user changes (rare)
 
   if (loading) {
     return (

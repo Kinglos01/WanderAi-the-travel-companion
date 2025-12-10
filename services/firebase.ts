@@ -19,7 +19,7 @@ import {
 } from 'firebase/firestore';
 import { User, Session } from '../types';
 
-// Firebase Configuration from Environment Variables
+// Firebase Configuration
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY,
   authDomain: process.env.FIREBASE_AUTH_DOMAIN,
@@ -29,20 +29,13 @@ const firebaseConfig = {
   appId: process.env.FIREBASE_APP_ID,
 };
 
-// Debugging check
-if (!firebaseConfig.apiKey) {
-  console.error("Firebase Config is missing! Please check your .env file.");
-} else {
-  console.log(`[Firebase] Initializing connection to project: ${firebaseConfig.projectId}`);
-}
-
-// Initialize Firebase
+// Initialize
 const app = initializeApp(firebaseConfig);
-
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Helper to map Firebase User to our User type
+// --- Auth Helpers ---
+
 const mapUser = (user: FirebaseUser): User => ({
   uid: user.uid,
   email: user.email || '',
@@ -50,7 +43,6 @@ const mapUser = (user: FirebaseUser): User => ({
   createdAt: user.metadata.creationTime || new Date().toISOString()
 });
 
-// Authentication Service
 export const subscribeToAuthChanges = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, (user) => {
     callback(user ? mapUser(user) : null);
@@ -75,52 +67,56 @@ export const logout = async (): Promise<void> => {
   await signOut(auth);
 };
 
-// Firestore Service
-export const saveSession = async (session: Omit<Session, 'id'>): Promise<Session> => {
+// --- Firestore Service (Auto-Connects User ID) ---
+
+// Note: We omit 'id', 'userId', and 'createdAt' from the input because 
+// we will generate them automatically here to ensure security consistency.
+export const saveSession = async (
+  sessionData: Omit<Session, 'id' | 'userId' | 'createdAt'>
+): Promise<Session> => {
   try {
-    // Validation
     const currentUser = auth.currentUser;
     if (!currentUser) throw new Error("User must be logged in to save session.");
-    
-    // Security Debugging
-    if (session.userId !== currentUser.uid) {
-      console.error(`[Security Mismatch] Session UserID: ${session.userId} vs Auth UID: ${currentUser.uid}`);
-      throw new Error("Security check failed: User ID mismatch.");
-    }
 
-    const sessionsRef = collection(db, 'sessions');
-    const sessionData = { 
-      ...session, 
+    // STRICTLY binding the userId here prevents permission mismatches
+    const fullSession = { 
+      ...sessionData, 
+      userId: currentUser.uid, 
       createdAt: new Date().toISOString() 
     };
+
+    const sessionsRef = collection(db, 'sessions');
     
-    console.log(`[Firestore] Saving session for user: ${currentUser.uid}`);
-    const docRef = await addDoc(sessionsRef, sessionData);
-    console.log(`[Firestore] Session saved with ID: ${docRef.id}`);
+    console.log(`[Firestore] Saving session for verified user: ${currentUser.uid}`);
+    const docRef = await addDoc(sessionsRef, fullSession);
+    console.log(`[Firestore] Success! Document ID: ${docRef.id}`);
     
-    return { ...sessionData, id: docRef.id };
+    return { ...fullSession, id: docRef.id };
   } catch (error: any) {
     console.error("Error saving session:", error);
     if (error.code === 'permission-denied') {
-      console.error("Firestore Permission Denied (Write). Please check: 1) firestore.rules is deployed. 2) You are logged in. 3) The 'userId' field matches your Auth UID.");
+      console.error("PERMISSION DENIED: The database rejected the write. Ensure 'firestore.rules' are deployed.");
     }
     throw error;
   }
 };
 
-export const getSessions = async (userId: string): Promise<Session[]> => {
+export const getSessions = async (): Promise<Session[]> => {
   try {
     const currentUser = auth.currentUser;
+    if (!currentUser) {
+      console.warn("getSessions called but no user is logged in.");
+      return [];
+    }
     
-    // Log intent
-    console.log(`[Firestore] Fetching sessions for userId: ${userId}`);
+    console.log(`[Firestore] Querying sessions owned by: ${currentUser.uid}`);
     
     const sessionsRef = collection(db, 'sessions');
     
-    // Note: This query requires an Index (userId ASC, createdAt DESC)
+    // Query strictly for the current user
     const q = query(
       sessionsRef, 
-      where("userId", "==", userId),
+      where("userId", "==", currentUser.uid),
       orderBy("createdAt", "desc")
     );
     
@@ -130,18 +126,14 @@ export const getSessions = async (userId: string): Promise<Session[]> => {
       ...doc.data()
     } as Session));
     
-    console.log(`[Firestore] Found ${results.length} sessions.`);
+    console.log(`[Firestore] Loaded ${results.length} sessions.`);
     return results;
 
   } catch (error: any) {
     console.error("Error fetching sessions:", error);
-    
-    if (error.code === 'permission-denied') {
-      console.error("Firestore Permission Denied (Read): Check firestore.rules or ensure query matches 'allow read' conditions.");
-    } else if (error.code === 'failed-precondition') {
-      console.error("Firestore Index Missing: Check the console for a link to create the index, or deploy firestore.indexes.json.");
+    if (error.code === 'failed-precondition') {
+      console.error("INDEX MISSING: Open the link above in the console to create the index.");
     }
-    
     return [];
   }
 };

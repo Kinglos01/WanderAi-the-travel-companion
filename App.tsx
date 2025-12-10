@@ -72,13 +72,12 @@ const App: React.FC = () => {
       }
 
       // 3. Save to History (Firestore)
+      // Note: We don't pass userId anymore; the service handles it for security.
       if (user) {
         await saveSession({
-          userId: user.uid,
           prompt: `Trip to ${destination} for ${days} days. Interests: ${interests}`,
           response: itinerary,
           weather: weatherData || undefined,
-          createdAt: new Date().toISOString()
         });
       }
 
